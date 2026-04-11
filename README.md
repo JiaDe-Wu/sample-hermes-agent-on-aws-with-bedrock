@@ -6,37 +6,56 @@ English | [简体中文](README_CN.md)
 
 ---
 
+## ⚠️ Pending Upstream Merge
+
+This project depends on our native Bedrock provider PR:
+
+- **PR:** [NousResearch/hermes-agent#7920](https://github.com/NousResearch/hermes-agent/pull/7920) — `feat: native AWS Bedrock provider via Converse API`
+- **Issue:** [NousResearch/hermes-agent#3863](https://github.com/NousResearch/hermes-agent/issues/3863) — `[Feature]: Native AWS Bedrock provider support`
+
+Currently installs from our fork branch (`feat/native-aws-bedrock-provider`), pinned to the April 11, 2026 tested version. Once the PR is merged, we will switch to the official PyPI release.
+
+---
+
 ## What is Hermes Agent?
 
-[Hermes Agent](https://github.com/NousResearch/hermes-agent) is the self-improving AI agent built by [Nous Research](https://nousresearch.com). It's the only agent with a built-in learning loop — it creates skills from experience, improves them during use, and builds a deepening model of who you are across sessions. 19K+ GitHub stars, 242 contributors, MIT licensed.
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) is an open-source, self-improving AI agent built by [Nous Research](https://nousresearch.com). It creates skills from experience, improves them during use, and builds a persistent model of who you are across sessions. Python-based, MIT licensed.
+
+This project is the **Hermes Agent** counterpart to our [OpenClaw on AWS with Bedrock](https://github.com/JiaDe-Wu/clawdbot-aws-bedrock) deployment (accepted into [aws-samples](https://github.com/aws-samples/sample-Moltbot-on-AWS-with-Bedrock)).
 
 ### Hermes Agent vs OpenClaw
 
-Both are open-source AI agents. Here's how they compare:
-
-| | OpenClaw | Hermes Agent |
-|---|---------|--------------|
-| Language | TypeScript / Node.js | Python |
-| Learning | No built-in learning | **Self-improving skills + persistent memory** |
-| Install | `npm install -g` | `pip install` or one-line installer |
-| Messaging | WhatsApp, Telegram, Discord, Slack | WhatsApp, Telegram, Discord, Slack, **Feishu, Signal, Matrix, Mattermost** |
-| Terminal | Docker sandbox | **6 backends: local, Docker, SSH, Modal, Daytona, Singularity** |
-| Models | OpenRouter, Anthropic, Bedrock | OpenRouter, Anthropic, Bedrock, **20+ providers** |
-| Cron | No | **Built-in scheduler with platform delivery** |
-| Delegation | No | **Parallel subagent spawning** |
-| Research | No | **RL training environments (Atropos)** |
-
-This project deploys Hermes Agent on AWS with **native Amazon Bedrock integration** — the same approach we built for [OpenClaw on AWS](https://github.com/JiaDe-Wu/clawdbot-aws-bedrock), now adapted for Hermes.
+| Dimension | OpenClaw | Hermes Agent | Edge |
+|-----------|----------|-------------|------|
+| GitHub Stars | 346K+ | 54K+ | OpenClaw |
+| Contributors | 1200+ | 142+ | OpenClaw |
+| Language | TypeScript / Node.js | Python | Depends |
+| License | MIT | MIT | Tie |
+| Architecture | Gateway-centric control plane | AIAgent self-evolving loop | Hermes |
+| Learning Loop | None (static skills) | Built-in auto-learning | Hermes |
+| Skill Creation | Manual authoring | Auto + manual | Hermes |
+| Skill Improvement | Manual editing | Auto-optimization | Hermes |
+| Memory System | Markdown files | Layered + pluggable backends | Hermes |
+| User Modeling | Basic (USER.md) | Honcho dialectic modeling | Hermes |
+| IM Channels | 20+ (Feishu, WeChat, WhatsApp, etc.) | 6+ (Telegram, Discord, Slack, etc.) | OpenClaw |
+| Terminal Backends | 2 (local, Docker) | 6 (local, Docker, SSH, Modal, Daytona, Singularity) | Hermes |
+| Enterprise | Yes (admin console, permissions, audit) | No | OpenClaw |
+| Security Defaults | Weak (multiple CVEs) | Strong (secure by default) | Hermes |
+| Community Ecosystem | 5700+ skills | 83+ projects | OpenClaw |
+| Research Tools | None | Atropos RL / trajectory export | Hermes |
+| MCP Support | Yes | Yes + MCP Server mode | Hermes |
+| Sub-Agents | Thread-bound sessions | Fully isolated independent agents | Hermes |
+| Deployment Cost | ~$5-15/month VPS | ~$5/month VPS | Hermes |
 
 ---
 
 ## Quick Start
 
-### ⚡ One-Click Deploy (Recommended — ~8 minutes)
+### ⚡ One-Click Deploy (~8 minutes)
 
 **Prerequisites:**
 - An AWS account
-- An EC2 key pair in your target region ([create one here](https://console.aws.amazon.com/ec2/home#KeyPairs:))
+- An EC2 key pair in your target region ([create one](https://console.aws.amazon.com/ec2/home#KeyPairs:))
 - Bedrock model access enabled ([enable here](https://console.aws.amazon.com/bedrock/home#/modelaccess))
 
 **3 steps:**
@@ -52,21 +71,20 @@ This project deploys Hermes Agent on AWS with **native Amazon Bedrock integratio
 | **EU (Ireland)** | [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/create/review?stackName=hermes-bedrock&templateURL=https://sharefile-jiade.s3.cn-northwest-1.amazonaws.com.cn/hermes-bedrock.yaml) |
 | **Asia Pacific (Tokyo)** | [![Launch Stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/create/review?stackName=hermes-bedrock&templateURL=https://sharefile-jiade.s3.cn-northwest-1.amazonaws.com.cn/hermes-bedrock.yaml) |
 
-> **Note:** Uses cross-region inference profiles — deploy in any region, requests auto-route to optimal locations.
+> Uses cross-region inference profiles — deploy in any region, requests auto-route to optimal locations.
 
 **What happens automatically:**
 - Creates VPC, subnets, security groups
 - Launches EC2 instance (Ubuntu 24.04)
 - Installs Python 3.12, Hermes Agent, boto3
-- Configures Bedrock as the default provider
-- Sets up IAM role for Bedrock access
+- Configures Bedrock as the default provider with IAM role authentication
 - Signals CloudFormation when ready
 
 ### CLI Deploy (Alternative)
 
 ```bash
-git clone https://github.com/JiaDe-Wu/hermes-agent-on-aws.git
-cd hermes-agent-on-aws
+git clone https://github.com/JiaDe-Wu/sample-hermes-agent-on-aws-with-bedrock.git
+cd sample-hermes-agent-on-aws-with-bedrock
 ./deploy.sh hermes-bedrock us-east-2 your-keypair
 ```
 
@@ -74,15 +92,15 @@ cd hermes-agent-on-aws
 
 ## Connect to Your Instance
 
-After deployment, go to the **CloudFormation Outputs** tab. You have two options:
+After deployment, go to the **CloudFormation Outputs** tab.
 
 ### Option A: EC2 Console (Easiest — no setup required)
 
-1. Go to [EC2 Console](https://console.aws.amazon.com/ec2/home#Instances:)
+1. Go to [EC2 Console → Instances](https://console.aws.amazon.com/ec2/home#Instances:)
 2. Find the instance named `hermes-bedrock-instance`
-3. Right-click → **Connect**
+3. Select it → click **Connect** (top right)
 4. Choose **Session Manager** tab → click **Connect**
-5. In the terminal that opens:
+5. In the terminal:
 
 ```bash
 sudo su - ubuntu
@@ -91,10 +109,8 @@ hermes chat
 
 ### Option B: SSM from Your Terminal
 
-If you have the [SSM Session Manager Plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed:
-
 ```bash
-# Copy this from CloudFormation Outputs → Step2ConnectSSM
+# Copy from CloudFormation Outputs → Step2ConnectSSM
 aws ssm start-session --target i-0xxxxxxxxxxxx --region us-east-2
 
 # Then:
@@ -102,9 +118,11 @@ sudo su - ubuntu
 hermes chat
 ```
 
-### Option C: SSH (if you enabled it)
+> Requires [SSM Session Manager Plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed locally.
 
-If you set `AllowedSSHCIDR` to your IP during deployment:
+### Option C: SSH
+
+Only if you set `AllowedSSHCIDR` to your IP during deployment:
 
 ```bash
 ssh -i your-key.pem ubuntu@<public-ip>
@@ -115,15 +133,7 @@ hermes chat
 
 ## Using Hermes Agent
 
-### Interactive Chat
-
-```bash
-hermes chat
-```
-
-Type your message and press Enter. Hermes responds with streaming output. Use tools, write code, read files — all through natural conversation.
-
-### Useful Commands
+### Commands
 
 | Command | What it does |
 |---------|-------------|
@@ -141,18 +151,8 @@ Type your message and press Enter. Hermes responds with streaming output. Use to
 | `/model us.amazon.nova-pro-v1:0` | Switch model mid-conversation |
 | `/usage` | Show token count and cost |
 | `/new` | Start fresh conversation |
-| `/compress` | Compress context when it gets long |
 | `Ctrl+C` | Interrupt current generation |
 | `/exit` | Exit |
-
-### Connect Messaging Platforms
-
-Hermes supports Telegram, Discord, Slack, Feishu, WhatsApp, Signal, and more:
-
-```bash
-hermes gateway setup    # Interactive setup wizard
-hermes gateway start    # Start the gateway service
-```
 
 ---
 
@@ -160,20 +160,13 @@ hermes gateway start    # Start the gateway service
 
 | Model | ID | Best For |
 |-------|-----|---------|
-| **Claude Sonnet 4.6** (default) | `us.anthropic.claude-sonnet-4-6` | General purpose, coding, reasoning |
-| **Claude Opus 4.6** | `us.anthropic.claude-opus-4-6-v1` | Most capable, complex tasks |
-| **Claude Haiku 4.5** | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | Fast and cheap |
+| **Claude Sonnet 4.6** (default) | `us.anthropic.claude-sonnet-4-6` | General purpose, coding |
+| **Claude Opus 4.6** | `us.anthropic.claude-opus-4-6-v1` | Complex reasoning |
+| **Claude Haiku 4.5** | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | Fast, cheap |
 | **Amazon Nova Pro** | `us.amazon.nova-pro-v1:0` | AWS-native, balanced |
 | **Amazon Nova Micro** | `us.amazon.nova-micro-v1:0` | Fastest, cheapest |
 | **DeepSeek V3.2** | `deepseek.v3.2` | Strong open model |
 | **Llama 4 Scout 17B** | `us.meta.llama4-scout-17b-instruct-v1:0` | Meta's latest |
-| **Llama 4 Maverick 17B** | `us.meta.llama4-maverick-17b-instruct-v1:0` | Meta's creative model |
-
-Switch models anytime:
-```bash
-hermes model                              # Interactive picker
-hermes chat --model deepseek.v3.2         # Use specific model
-```
 
 ---
 
@@ -192,7 +185,6 @@ You → Telegram/Discord/Slack/Feishu → EC2 (Hermes Agent) → Bedrock (Claude
 | IAM Role | Authenticates with Bedrock — no API keys |
 | SSM Session Manager | Secure access — no open ports |
 | VPC Endpoints (optional) | Private network to Bedrock |
-| CloudTrail | Automatic audit logs |
 
 ## Cost
 
@@ -203,8 +195,6 @@ You → Telegram/Discord/Slack/Feishu → EC2 (Hermes Agent) → Bedrock (Claude
 | VPC Endpoints (optional) | ~$22 |
 | Bedrock usage | Pay-per-use |
 | **Total infrastructure** | **~$33-65** |
-
-Bedrock example: 100 conversations/day with Claude Sonnet 4.6 ≈ $10-15/month.
 
 ## Cleanup
 
@@ -218,47 +208,42 @@ Or delete from the [CloudFormation Console](https://console.aws.amazon.com/cloud
 
 ## About the Bedrock Integration
 
-This deployment uses our **native Bedrock Converse API integration** for Hermes Agent ([PR #7920](https://github.com/NousResearch/hermes-agent/pull/7920)), not the OpenAI-compatible endpoint. This gives you:
+This deployment uses our **native Bedrock Converse API integration** — not the OpenAI-compatible endpoint.
 
 ### What We Built
 
-- **Native Converse API adapter** (`agent/bedrock_adapter.py`) — full message/tool format conversion, streaming with real-time delta callbacks, interrupt support
-- **AWS credential chain** — IAM roles, SSO profiles, env vars, EC2 instance metadata (IMDS) — zero API key management
-- **Dynamic model discovery** — auto-discovers foundation models + cross-region inference profiles via `ListFoundationModels` + `ListInferenceProfiles`
-- **Guardrails support** — optional Bedrock Guardrails for content filtering, configured via `config.yaml`
-- **Error classification** — Bedrock-specific patterns for `ThrottlingException`, `ModelNotReadyException`, context overflow — proper retry/backoff behavior
-- **Context length awareness** — static table for all Bedrock models so compression triggers at the right threshold
-- **Usage pricing** — accurate cost tracking for Claude, Nova, and other Bedrock models via `/usage`
-- **`hermes doctor`** — Bedrock diagnostics (credential detection, API health check, model count)
-- **`hermes auth`** — displays AWS IAM identity and region
-- **`/model` live switch** — switch between Bedrock models mid-conversation with validation via model discovery
+| Component | Description |
+|-----------|-------------|
+| `agent/bedrock_adapter.py` | Converse API adapter — message/tool conversion, streaming with delta callbacks, interrupt support |
+| AWS credential chain | IAM roles, SSO, env vars, IMDS — zero API key management |
+| Dynamic model discovery | `ListFoundationModels` + `ListInferenceProfiles` with caching |
+| Guardrails | Optional Bedrock Guardrails via `config.yaml` |
+| Error classification | `ThrottlingException`, `ModelNotReadyException`, context overflow — proper retry/backoff |
+| Context lengths | Static table for all Bedrock models, correct compression thresholds |
+| Usage pricing | Accurate `/usage` cost tracking for Bedrock models |
+| `hermes doctor` | Bedrock diagnostics — credential detection, API health, model count |
+| `hermes auth` | AWS IAM identity and region display |
+| `/model` switch | Mid-conversation model switching with Bedrock discovery validation |
 
 ### Implementation Reference
 
-Our Bedrock adapter follows the same architecture as [OpenClaw's `extensions/amazon-bedrock/`](https://github.com/openclaw/openclaw/tree/main/extensions/amazon-bedrock) plugin:
-- Converse API (not InvokeModel) for unified model interface
-- `auth: "aws-sdk"` credential chain (same as OpenClaw's `resolveAwsSdkEnvVarName`)
-- Inference profile support (cross-region `us.*` and `global.*` prefixes)
-- Guardrail config injection into Converse API calls
-
-The IMDS credential detection addresses the same class of issue as [OpenClaw PR #62673](https://github.com/openclaw/openclaw/pull/62673) — cloud environments provide credentials via instance metadata, not environment variables.
+Follows the same architecture as [OpenClaw's `extensions/amazon-bedrock/`](https://github.com/openclaw/openclaw/tree/main/extensions/amazon-bedrock) plugin. IMDS credential detection addresses the same issue as [OpenClaw PR #62673](https://github.com/openclaw/openclaw/pull/62673).
 
 ### Testing
 
-- **107 automated tests** — unit tests (adapter, conversion, streaming, discovery, errors) + integration tests (registry, aliases, runtime, providers, packaging)
-- **EC2 end-to-end** — 4 models verified (Claude Sonnet 4.6, Nova Pro, DeepSeek V3.2, Llama 4 Scout)
-- **CloudFormation end-to-end** — full stack deploy → SSM connect → `hermes chat` → multi-model conversation
-- **Gateway verified** — Feishu (Lark) messaging platform tested with Bedrock provider
+- **107 automated tests** — all passing on Python 3.11.14
+- **4 models end-to-end** — Claude Sonnet 4.6, Nova Pro, DeepSeek V3.2, Llama 4 Scout
+- **CloudFormation end-to-end** — stack deploy → SSM connect → `hermes chat` → multi-model
+- **Gateway verified** — Feishu messaging platform tested
 
-### Version Pinning
+### Related Links
 
-This deployment currently installs from our fork branch:
-
-```
-git+https://github.com/JiaDe-Wu/hermes-agent.git@feat/native-aws-bedrock-provider
-```
-
-This is pinned to the version tested on **April 11, 2026** with all 107 tests passing. Once [PR #7920](https://github.com/NousResearch/hermes-agent/pull/7920) is merged upstream, we will update the `HermesInstallSource` parameter to use the official PyPI release (`hermes-agent`). You can also change this parameter yourself in the CloudFormation console to switch sources at any time.
+| Resource | URL |
+|----------|-----|
+| Hermes Agent Bedrock PR | [#7920](https://github.com/NousResearch/hermes-agent/pull/7920) |
+| Feature Request Issue | [#3863](https://github.com/NousResearch/hermes-agent/issues/3863) |
+| OpenClaw on AWS (reference) | [clawdbot-aws-bedrock](https://github.com/JiaDe-Wu/clawdbot-aws-bedrock) |
+| OpenClaw on AWS (aws-samples) | [sample-Moltbot-on-AWS-with-Bedrock](https://github.com/aws-samples/sample-Moltbot-on-AWS-with-Bedrock) |
 
 ---
 
@@ -268,15 +253,10 @@ This is pinned to the version tested on **April 11, 2026** with all 107 tests pa
 - 🔒 **No open ports** — SSM Session Manager (SSH optional, disabled by default)
 - 🛡️ **Private network** — VPC Endpoints keep Bedrock traffic off the internet (optional)
 - 📊 **Audit trail** — CloudTrail logs every Bedrock API call
-- 🏢 **Isolated** — Dedicated VPC, security groups, least-privilege IAM
-
-## Contributing
-
-Contributions welcome! Please fork and submit a pull request.
 
 ## License
 
-This deployment template is MIT licensed. Hermes Agent is [MIT licensed](https://github.com/NousResearch/hermes-agent/blob/main/LICENSE).
+MIT. Hermes Agent is [MIT licensed](https://github.com/NousResearch/hermes-agent/blob/main/LICENSE).
 
 ---
 
