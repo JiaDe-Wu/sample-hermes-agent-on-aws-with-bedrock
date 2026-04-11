@@ -1,0 +1,46 @@
+name: Track GitHub Traffic
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # Daily at UTC 1:00
+  workflow_dispatch:      # Manual trigger
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch traffic data
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE=$(date -u +%Y-%m-%d)
+          REPO="${{ github.repository }}"
+
+          CLONES=$(curl -s \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/$REPO/traffic/clones")
+
+          VIEWS=$(curl -s \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/$REPO/traffic/views")
+
+          mkdir -p traffic
+          echo "{\"fetched_at\":\"$DATE\",\"clones\":$CLONES}" >> traffic/clones-history.ndjson
+          echo "{\"fetched_at\":\"$DATE\",\"views\":$VIEWS}" >> traffic/views-history.ndjson
+
+          echo "Fetched traffic data for $DATE"
+
+      - name: Commit traffic data
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add traffic/
+          git diff --staged --quiet || git commit -m "chore: traffic data $(date -u +%Y-%m-%d)"
+          git push
