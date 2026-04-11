@@ -1,0 +1,468 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Hermes Agent on AWS — One-click deployment with Amazon Bedrock (Converse API)'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Model Configuration"
+        Parameters:
+          - BedrockModel
+      - Label:
+          default: "Instance Configuration"
+        Parameters:
+          - InstanceType
+          - KeyPairName
+      - Label:
+          default: "Network & Security"
+        Parameters:
+          - CreateVPCEndpoints
+          - AllowedSSHCIDR
+      - Label:
+          default: "Hermes Source (Advanced)"
+        Parameters:
+          - HermesInstallSource
+
+Parameters:
+  BedrockModel:
+    Type: String
+    Default: "us.anthropic.claude-sonnet-4-6"
+    Description: "Bedrock model ID — inference profile IDs recommended for best capacity"
+    AllowedValues:
+      - "us.anthropic.claude-sonnet-4-6"
+      - "us.anthropic.claude-opus-4-6-v1"
+      - "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+      - "us.amazon.nova-pro-v1:0"
+      - "us.amazon.nova-micro-v1:0"
+      - "deepseek.v3.2"
+      - "us.meta.llama4-scout-17b-instruct-v1:0"
+      - "us.meta.llama4-maverick-17b-instruct-v1:0"
+
+  InstanceType:
+    Type: String
+    Default: "t3.medium"
+    Description: "EC2 instance type — t3.medium recommended (2 vCPU, 4GB RAM)"
+    AllowedValues:
+      - "t3.small"
+      - "t3.medium"
+      - "t3.large"
+      - "t3.xlarge"
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: "EC2 key pair for emergency SSH access"
+
+  AllowedSSHCIDR:
+    Type: String
+    Default: "127.0.0.1/32"
+    Description: "CIDR for SSH access (default: disabled — use SSM Session Manager instead)"
+
+  CreateVPCEndpoints:
+    Type: String
+    Default: "true"
+    Description: "Create VPC endpoints for private Bedrock/SSM access (adds ~$22/month)"
+    AllowedValues:
+      - "true"
+      - "false"
+
+  HermesInstallSource:
+    Type: String
+    Default: "git+https://github.com/JiaDe-Wu/hermes-agent.git@feat/native-aws-bedrock-provider"
+    Description: "Hermes install source — change to 'hermes-agent' after PR is merged to upstream"
+    AllowedValues:
+      - "git+https://github.com/JiaDe-Wu/hermes-agent.git@feat/native-aws-bedrock-provider"
+      - "hermes-agent"
+
+Conditions:
+  CreateEndpoints: !Equals [!Ref CreateVPCEndpoints, "true"]
+  AllowSSH: !Not [!Equals [!Ref AllowedSSHCIDR, "127.0.0.1/32"]]
+
+Resources:
+  # ==================== Wait Condition ====================
+  HermesWaitHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  HermesWaitCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: HermesInstance
+    Properties:
+      Handle: !Ref HermesWaitHandle
+      Timeout: '900'
+      Count: 1
+
+  # ==================== VPC and Network ====================
+  HermesVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-vpc"
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref HermesVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HermesVPC
+      CidrBlock: "10.0.1.0/24"
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-public"
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HermesVPC
+      CidrBlock: "10.0.2.0/24"
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-private"
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref HermesVPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # ==================== VPC Endpoints (optional) ====================
+  VPCEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: CreateEndpoints
+    Properties:
+      GroupDescription: "VPC endpoint security group"
+      VpcId: !Ref HermesVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref HermesSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-vpce-sg"
+
+  BedrockRuntimeEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: CreateEndpoints
+    Properties:
+      VpcId: !Ref HermesVPC
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.bedrock-runtime'
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: [!Ref PrivateSubnet]
+      SecurityGroupIds: [!Ref VPCEndpointSecurityGroup]
+
+  SSMEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: CreateEndpoints
+    Properties:
+      VpcId: !Ref HermesVPC
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssm'
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: [!Ref PrivateSubnet]
+      SecurityGroupIds: [!Ref VPCEndpointSecurityGroup]
+
+  SSMMessagesEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: CreateEndpoints
+    Properties:
+      VpcId: !Ref HermesVPC
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssmmessages'
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: [!Ref PrivateSubnet]
+      SecurityGroupIds: [!Ref VPCEndpointSecurityGroup]
+
+  EC2MessagesEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: CreateEndpoints
+    Properties:
+      VpcId: !Ref HermesVPC
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ec2messages'
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: [!Ref PrivateSubnet]
+      SecurityGroupIds: [!Ref VPCEndpointSecurityGroup]
+
+  # ==================== IAM Role ====================
+  HermesInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
+      Policies:
+        - PolicyName: BedrockAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                  - 'bedrock:Converse'
+                  - 'bedrock:ConverseStream'
+                  - 'bedrock:ListFoundationModels'
+                  - 'bedrock:ListInferenceProfiles'
+                  - 'bedrock:GetFoundationModel'
+                Resource: '*'
+        - PolicyName: SSMParameter
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ssm:PutParameter'
+                  - 'ssm:GetParameter'
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/hermes/${AWS::StackName}/*'
+
+  HermesInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref HermesInstanceRole]
+
+  # ==================== Security Group ====================
+  HermesSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Hermes Agent instance security group"
+      VpcId: !Ref HermesVPC
+      SecurityGroupIngress:
+        - !If
+          - AllowSSH
+          - IpProtocol: tcp
+            FromPort: 22
+            ToPort: 22
+            CidrIp: !Ref AllowedSSHCIDR
+            Description: "SSH access (fallback)"
+          - !Ref AWS::NoValue
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: "0.0.0.0/0"
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-sg"
+
+  # ==================== EC2 Instance ====================
+  HermesInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id}}'
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref HermesInstanceProfile
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet: [!Ref HermesSecurityGroup]
+          SubnetId: !Ref PublicSubnet
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          exec > >(tee /var/log/hermes-setup.log) 2>&1
+          echo "=========================================="
+          echo "Hermes Agent on AWS Setup: $(date)"
+          echo "=========================================="
+
+          export DEBIAN_FRONTEND=noninteractive
+
+          # [1/7] System update
+          echo "[1/7] Updating system..."
+          apt-get update -qq
+          apt-get upgrade -y -qq
+          apt-get install -y -qq python3-venv python3-dev python3-pip git curl unzip
+
+          # [2/7] Install AWS CLI v2
+          echo "[2/7] Installing AWS CLI..."
+          curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip && ./aws/install && rm -rf aws awscliv2.zip
+
+          # [3/7] Configure SSM Agent
+          echo "[3/7] Configuring SSM Agent..."
+          snap start amazon-ssm-agent 2>/dev/null || systemctl start amazon-ssm-agent 2>/dev/null || true
+
+          # [4/7] Detect region
+          echo "[4/7] Detecting AWS region..."
+          IMDS_TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+          AWS_REGION=$(curl -s -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
+          if [ -z "$AWS_REGION" ]; then AWS_REGION="${AWS::Region}"; fi
+          INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+          if [ -z "$INSTANCE_ID" ]; then INSTANCE_ID="unknown"; fi
+          echo "Region: $AWS_REGION, Instance: $INSTANCE_ID"
+
+          # [5/7] Install Hermes Agent
+          echo "[5/7] Installing Hermes Agent..."
+          sudo -H -u ubuntu bash << 'HERMES_INSTALL'
+          set -e
+          cd ~
+
+          # Create venv with system Python (3.12+ on Ubuntu 24.04)
+          python3 -m venv ~/hermes-venv
+          source ~/hermes-venv/bin/activate
+          pip install --upgrade pip setuptools wheel
+
+          # Install Hermes with Bedrock support
+          pip install "${HermesInstallSource}"
+          pip install boto3
+
+          # Add to PATH
+          echo '' >> ~/.bashrc
+          echo '# Hermes Agent' >> ~/.bashrc
+          echo 'source ~/hermes-venv/bin/activate' >> ~/.bashrc
+          echo "export AWS_REGION=$AWS_REGION" >> ~/.bashrc
+          echo "export AWS_DEFAULT_REGION=$AWS_REGION" >> ~/.bashrc
+          HERMES_INSTALL
+
+          # [6/7] Configure Hermes
+          echo "[6/7] Configuring Hermes Agent..."
+          sudo -H -u ubuntu bash << HERMES_CONFIG
+          set -e
+          source ~/hermes-venv/bin/activate
+          export AWS_REGION=$AWS_REGION
+          export AWS_DEFAULT_REGION=$AWS_REGION
+
+          # Create config directory
+          mkdir -p ~/.hermes
+
+          # Write config.yaml
+          cat > ~/.hermes/config.yaml << 'YAMLEOF'
+          model:
+            default: ${BedrockModel}
+            provider: bedrock
+            base_url: https://bedrock-runtime.REGION_PLACEHOLDER.amazonaws.com
+
+          bedrock:
+            region: REGION_PLACEHOLDER
+            discovery:
+              enabled: true
+
+          terminal:
+            backend: local
+            cwd: .
+            timeout: 180
+
+          compression:
+            enabled: true
+            threshold: 0.50
+
+          display:
+            streaming: true
+          YAMLEOF
+
+          # Replace region placeholder
+          sed -i "s/REGION_PLACEHOLDER/$AWS_REGION/g" ~/.hermes/config.yaml
+
+          # Enable systemd linger for gateway service
+          sudo loginctl enable-linger ubuntu
+          HERMES_CONFIG
+
+          # [7/7] Signal CloudFormation
+          echo "[7/7] Signaling completion..."
+
+          # Save instance info
+          sudo -u ubuntu bash -c "echo '$INSTANCE_ID' > ~/.hermes/instance_id.txt"
+          sudo -u ubuntu bash -c "echo '$AWS_REGION' > ~/.hermes/region.txt"
+
+          # Build access info
+          ACCESS_INFO="hermes-agent ready | model: ${BedrockModel} | region: $AWS_REGION | instance: $INSTANCE_ID"
+
+          # Signal success
+          apt-get install -y -qq python3-pip 2>/dev/null
+          pip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz 2>/dev/null || true
+
+          CFN_SIGNAL=$(which cfn-signal 2>/dev/null || find /usr -name cfn-signal 2>/dev/null | head -1)
+          if [ -n "$CFN_SIGNAL" ]; then
+            $CFN_SIGNAL -e 0 -d "$ACCESS_INFO" -r "Hermes Agent ready" '${HermesWaitHandle}'
+          else
+            SIGNAL_JSON="{\"Status\":\"SUCCESS\",\"Reason\":\"Hermes Agent ready\",\"UniqueId\":\"hermes\",\"Data\":\"$ACCESS_INFO\"}"
+            curl -X PUT -H 'Content-Type:' --data-binary "$SIGNAL_JSON" '${HermesWaitHandle}'
+          fi
+
+          echo "=========================================="
+          echo "Hermes Agent installation complete!"
+          echo "Model: ${BedrockModel}"
+          echo "Region: $AWS_REGION"
+          echo "=========================================="
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-instance"
+
+Outputs:
+  Step1InstallSSMPlugin:
+    Description: "STEP 1: Install SSM Session Manager Plugin (one-time, on your local computer)"
+    Value: "https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html"
+
+  Step2ConnectSSM:
+    Description: "STEP 2: Connect to the instance via SSM"
+    Value: !Sub "aws ssm start-session --target ${HermesInstance} --region ${AWS::Region}"
+
+  Step3StartChatting:
+    Description: "STEP 3: Once connected, start chatting"
+    Value: "hermes chat"
+
+  InstanceId:
+    Description: "EC2 Instance ID"
+    Value: !Ref HermesInstance
+
+  BedrockModel:
+    Description: "Bedrock model in use"
+    Value: !Ref BedrockModel
+
+  SetupInfo:
+    Description: "Deployment status"
+    Value: !GetAtt HermesWaitCondition.Data
+
+  UsefulCommands:
+    Description: "Useful commands after connecting"
+    Value: |
+      hermes chat              # Start interactive conversation
+      hermes model             # Switch models
+      hermes doctor            # Check configuration
+      hermes gateway setup     # Connect Telegram/Discord/Slack/Feishu
+      hermes gateway start     # Start messaging gateway
+
+  MonthlyCostEstimate:
+    Description: "Estimated monthly infrastructure cost (USD)"
+    Value: !If
+      - CreateEndpoints
+      - "EC2: ~$30 | EBS: ~$2.40 | VPC Endpoints: ~$22 | Bedrock: pay-per-use | Total: ~$55-65/month"
+      - "EC2: ~$30 | EBS: ~$2.40 | VPC Endpoints: $0 | Bedrock: pay-per-use | Total: ~$33-43/month"
