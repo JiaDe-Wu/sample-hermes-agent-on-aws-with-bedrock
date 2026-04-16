@@ -6,14 +6,14 @@ English | [简体中文](README_CN.md)
 
 ---
 
-## ⚠️ Pending Upstream Merge
+## ✅ Merged Upstream
 
-This project depends on our native Bedrock provider PR:
+Our native Bedrock provider has been merged into Hermes Agent:
 
-- **PR:** [NousResearch/hermes-agent#7920](https://github.com/NousResearch/hermes-agent/pull/7920) — `feat: native AWS Bedrock provider via Converse API`
-- **Issue:** [NousResearch/hermes-agent#3863](https://github.com/NousResearch/hermes-agent/issues/3863) — `[Feature]: Native AWS Bedrock provider support`
+- **PR:** [NousResearch/hermes-agent#10549](https://github.com/NousResearch/hermes-agent/pull/10549) (cherry-picked from [#7920](https://github.com/NousResearch/hermes-agent/pull/7920))
+- **Issue:** [NousResearch/hermes-agent#3863](https://github.com/NousResearch/hermes-agent/issues/3863) — resolved
 
-Currently installs from our fork branch (`feat/native-aws-bedrock-provider`), pinned to the April 11, 2026 tested version. Once the PR is merged, we will switch to the official PyPI release.
+This deployment now installs from the official PyPI release. No fork needed.
 
 ---
 

@@ -67,11 +67,11 @@ Parameters:
 
   HermesInstallSource:
     Type: String
-    Default: "git+https://github.com/JiaDe-Wu/hermes-agent.git@feat/native-aws-bedrock-provider"
-    Description: "Hermes install source — change to 'hermes-agent' after PR is merged to upstream"
+    Default: "hermes-agent"
+    Description: "Hermes install source — official PyPI release (native Bedrock support included since PR #10549)"
     AllowedValues:
-      - "git+https://github.com/JiaDe-Wu/hermes-agent.git@feat/native-aws-bedrock-provider"
       - "hermes-agent"
+      - "git+https://github.com/JiaDe-Wu/hermes-agent.git@feat/native-aws-bedrock-provider"
 
 Conditions:
   CreateEndpoints: !Equals [!Ref CreateVPCEndpoints, "true"]
