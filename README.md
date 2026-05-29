@@ -2,6 +2,8 @@
 
 > Deploy [Hermes Agent](https://github.com/NousResearch/hermes-agent) on AWS using Amazon Bedrock and native AWS services. One-click CloudFormation deployment — no API keys, no manual setup.
 
+> 🦞 **Sister project:** Prefer a TypeScript agent with 20+ IM channels and Web UI? See **[OpenClaw on AWS with Bedrock](https://github.com/aws-samples/sample-OpenClaw-on-AWS-with-Bedrock)** — same one-click CloudFormation + Bedrock deploy, built around the most popular open-source AI assistant (346K+ stars).
+
 English | [简体中文](README_CN.md)
 
 ---
