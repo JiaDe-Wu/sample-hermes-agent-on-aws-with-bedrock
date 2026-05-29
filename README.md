@@ -47,25 +47,27 @@ This project is the **Hermes Agent** counterpart to our [OpenClaw on AWS with Be
 
 | Dimension | OpenClaw | Hermes Agent | Edge |
 |-----------|----------|-------------|------|
-| GitHub Stars | 346K+ | 93K+ | OpenClaw |
-| Contributors | 1200+ | 300+ | OpenClaw |
+| GitHub Stars | 375K+ | 172K+ | OpenClaw |
+| Contributors | 2400+ | 1380+ | OpenClaw |
 | Language | TypeScript / Node.js | Python | Depends |
 | License | MIT | MIT | Tie |
 | Architecture | Gateway-centric control plane | AIAgent self-evolving loop | Hermes |
-| Learning Loop | None (static skills) | Built-in auto-learning | Hermes |
-| Skill Creation | Manual authoring | Auto + manual | Hermes |
-| Skill Improvement | Manual editing | Auto-optimization | Hermes |
-| Memory System | Markdown files | Layered + pluggable backends | Hermes |
-| User Modeling | Basic (USER.md) | Honcho dialectic modeling | Hermes |
-| IM Channels | 20+ (Feishu, WeChat, WhatsApp, etc.) | 6+ (Telegram, Discord, Slack, etc.) | OpenClaw |
+| Learning Loop | None (static skills) | Built-in auto-learning (every 15 tasks) | Hermes |
+| Skills | 700+ (manual authoring) | 692 (auto-created + manual + hub) | Tie |
+| Skill Improvement | Manual editing | Auto-optimization from experience | Hermes |
+| Memory System | Markdown files (MEMORY.md) | 4-layer + pluggable backends (Honcho, Mem0) | Hermes |
+| User Modeling | Basic (USER.md) | Honcho dialectic modeling + USER.md | Hermes |
+| IM Channels | 50+ (Feishu, WeChat, WhatsApp, LINE, etc.) | 7 (Telegram, Discord, Slack, Feishu, WhatsApp, Signal, Email) | OpenClaw |
 | Terminal Backends | 2 (local, Docker) | 6 (local, Docker, SSH, Modal, Daytona, Singularity) | Hermes |
 | Enterprise | Yes (admin console, permissions, audit) | No | OpenClaw |
-| Security Defaults | Weak (multiple CVEs) | Strong (secure by default) | Hermes |
-| Community Ecosystem | 5700+ skills | 83+ projects | OpenClaw |
-| Research Tools | None | Atropos RL / trajectory export | Hermes |
-| MCP Support | Yes | Yes + MCP Server mode | Hermes |
+| Security Defaults | Weak (multiple CVEs in 2026) | Strong (secure by default, prompt injection scanning) | Hermes |
+| Research Tools | None | Atropos RL environments + trajectory export | Hermes |
+| MCP Support | Yes (client) | Yes (client + server mode) | Hermes |
 | Sub-Agents | Thread-bound sessions | Fully isolated independent agents | Hermes |
+| Cron / Scheduling | Yes | Yes (with delivery to IM channels) | Tie |
 | Deployment Cost | ~$5-15/month VPS | ~$5/month VPS | Hermes |
+
+**TL;DR:** OpenClaw wins on ecosystem scale (more IM channels, bigger community). Hermes wins on intelligence (learning loop, memory, security, research tooling). Both work great on AWS Bedrock.
 
 ---
 
