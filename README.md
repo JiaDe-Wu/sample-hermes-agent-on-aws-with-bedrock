@@ -19,7 +19,7 @@ This deployment now installs from the official PyPI release. No fork needed.
 
 ## What is Hermes Agent?
 
-[Hermes Agent](https://github.com/NousResearch/hermes-agent) is an open-source, self-improving AI agent built by [Nous Research](https://nousresearch.com). It creates skills from experience, improves them during use, and builds a persistent model of who you are across sessions. Python-based, MIT licensed.
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) is an open-source, self-improving AI agent built by [Nous Research](https://nousresearch.com). 93K+ GitHub stars, 300+ contributors, MIT licensed. It creates skills from experience, improves them during use, and builds a persistent model of who you are across sessions.
 
 This project is the **Hermes Agent** counterpart to our [OpenClaw on AWS with Bedrock](https://github.com/JiaDe-Wu/clawdbot-aws-bedrock) deployment (accepted into [aws-samples](https://github.com/aws-samples/sample-Moltbot-on-AWS-with-Bedrock)).
 
@@ -27,8 +27,8 @@ This project is the **Hermes Agent** counterpart to our [OpenClaw on AWS with Be
 
 | Dimension | OpenClaw | Hermes Agent | Edge |
 |-----------|----------|-------------|------|
-| GitHub Stars | 346K+ | 54K+ | OpenClaw |
-| Contributors | 1200+ | 142+ | OpenClaw |
+| GitHub Stars | 346K+ | 93K+ | OpenClaw |
+| Contributors | 1200+ | 300+ | OpenClaw |
 | Language | TypeScript / Node.js | Python | Depends |
 | License | MIT | MIT | Tie |
 | Architecture | Gateway-centric control plane | AIAgent self-evolving loop | Hermes |
@@ -133,6 +133,16 @@ hermes chat
 
 ## Using Hermes Agent
 
+### Feishu (飞书) Integration — Zero Extra Steps
+
+If you provided `FeishuAppId` and `FeishuAppSecret` during deployment, the Feishu gateway is already running. Just message your bot in Feishu — it works immediately.
+
+**Don't have a Feishu app yet?** Create one in 2 minutes:
+1. Go to [open.feishu.cn](https://open.feishu.cn) → Create App → Custom App
+2. Enable "Bot" capability, add "Receive messages" event permission
+3. Copy the App ID and App Secret
+4. Redeploy the stack with these values (or SSH in and add them to `~/.hermes/.env`)
+
 ### Commands
 
 | Command | What it does |
@@ -161,12 +171,15 @@ hermes chat
 | Model | ID | Best For |
 |-------|-----|---------|
 | **Claude Sonnet 4.6** (default) | `us.anthropic.claude-sonnet-4-6` | General purpose, coding |
+| **Claude Opus 4.8** | `us.anthropic.claude-opus-4-8` | Most capable, complex reasoning |
 | **Claude Opus 4.6** | `us.anthropic.claude-opus-4-6-v1` | Complex reasoning |
 | **Claude Haiku 4.5** | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | Fast, cheap |
 | **Amazon Nova Pro** | `us.amazon.nova-pro-v1:0` | AWS-native, balanced |
 | **Amazon Nova Micro** | `us.amazon.nova-micro-v1:0` | Fastest, cheapest |
 | **DeepSeek V3.2** | `deepseek.v3.2` | Strong open model |
 | **Llama 4 Scout 17B** | `us.meta.llama4-scout-17b-instruct-v1:0` | Meta's latest |
+
+> Use `hermes model` to discover all available models in your region dynamically.
 
 ---
 
@@ -231,10 +244,10 @@ Follows the same architecture as [OpenClaw's `extensions/amazon-bedrock/`](https
 
 ### Testing
 
-- **107 automated tests** — all passing on Python 3.11.14
-- **4 models end-to-end** — Claude Sonnet 4.6, Nova Pro, DeepSeek V3.2, Llama 4 Scout
+- **137 automated tests** — all passing on Python 3.11 + 3.14
+- **5 models end-to-end** — Claude Opus 4.8, Claude Sonnet 4.6, Nova Pro, DeepSeek V3.2, Llama 4 Scout
 - **CloudFormation end-to-end** — stack deploy → SSM connect → `hermes chat` → multi-model
-- **Gateway verified** — Feishu messaging platform tested
+- **Gateway verified** — Feishu messaging platform tested with auto-reconnect
 
 ### Related Links
 

@@ -22,6 +22,11 @@ Metadata:
           default: "Hermes Source (Advanced)"
         Parameters:
           - HermesInstallSource
+      - Label:
+          default: "Messaging (Optional)"
+        Parameters:
+          - FeishuAppId
+          - FeishuAppSecret
 
 Parameters:
   BedrockModel:
@@ -73,9 +78,21 @@ Parameters:
       - "hermes-agent"
       - "git+https://github.com/JiaDe-Wu/hermes-agent.git@feat/native-aws-bedrock-provider"
 
+  FeishuAppId:
+    Type: String
+    Default: ""
+    Description: "Feishu/Lark App ID (optional — leave empty to skip Feishu setup). Create at open.feishu.cn"
+
+  FeishuAppSecret:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: "Feishu/Lark App Secret (optional — leave empty to skip Feishu setup)"
+
 Conditions:
   CreateEndpoints: !Equals [!Ref CreateVPCEndpoints, "true"]
   AllowSSH: !Not [!Equals [!Ref AllowedSSHCIDR, "127.0.0.1/32"]]
+  ConfigureFeishu: !Not [!Equals [!Ref FeishuAppId, ""]]
 
 Resources:
   # ==================== Wait Condition ====================
@@ -375,10 +392,18 @@ Resources:
             discovery:
               enabled: true
 
+          agent:
+            approval_mode: auto
+
           terminal:
             backend: local
             cwd: .
             timeout: 180
+            approval: "off"
+
+          memory:
+            memory_enabled: true
+            user_profile_enabled: true
 
           compression:
             enabled: true
@@ -394,6 +419,56 @@ Resources:
           # Enable systemd linger for gateway service
           sudo loginctl enable-linger ubuntu
           HERMES_CONFIG
+
+          # [6.5/7] Configure Feishu gateway (if credentials provided)
+          FEISHU_APP_ID="${FeishuAppId}"
+          FEISHU_APP_SECRET="${FeishuAppSecret}"
+          if [ -n "$FEISHU_APP_ID" ] && [ -n "$FEISHU_APP_SECRET" ]; then
+            echo "[6.5/7] Configuring Feishu gateway..."
+            sudo -H -u ubuntu bash << FEISHU_SETUP
+          set -e
+          source ~/hermes-venv/bin/activate
+
+          # Write Feishu credentials to .env
+          cat >> ~/.hermes/.env << ENVEOF
+          FEISHU_APP_ID=$FEISHU_APP_ID
+          FEISHU_APP_SECRET=$FEISHU_APP_SECRET
+          FEISHU_DOMAIN=feishu
+          ENVEOF
+
+          # Install lark-oapi for Feishu WebSocket
+          pip install -q lark-oapi
+
+          # Set up gateway as systemd user service
+          mkdir -p ~/.config/systemd/user
+          cat > ~/.config/systemd/user/hermes-gateway.service << 'SVCEOF'
+          [Unit]
+          Description=Hermes Agent Gateway - Feishu
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=simple
+          ExecStart=%h/hermes-venv/bin/python -m hermes_cli.main gateway run --replace
+          WorkingDirectory=%h
+          Environment="PATH=%h/hermes-venv/bin:/usr/local/bin:/usr/bin:/bin"
+          Environment="VIRTUAL_ENV=%h/hermes-venv"
+          Environment="HERMES_HOME=%h/.hermes"
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=default.target
+          SVCEOF
+
+          systemctl --user daemon-reload
+          systemctl --user enable hermes-gateway
+          systemctl --user start hermes-gateway
+          FEISHU_SETUP
+            echo "  Feishu gateway configured and started"
+          else
+            echo "[6.5/7] Skipping Feishu (no credentials provided)"
+          fi
 
           # [7/7] Signal CloudFormation
           echo "[7/7] Signaling completion..."
@@ -457,8 +532,8 @@ Outputs:
       hermes chat              # Start interactive conversation
       hermes model             # Switch models
       hermes doctor            # Check configuration
-      hermes gateway setup     # Connect Telegram/Discord/Slack/Feishu
-      hermes gateway start     # Start messaging gateway
+      hermes gateway status    # Check Feishu gateway status (if configured)
+      hermes gateway start     # Start messaging gateway manually
 
   MonthlyCostEstimate:
     Description: "Estimated monthly infrastructure cost (USD)"
