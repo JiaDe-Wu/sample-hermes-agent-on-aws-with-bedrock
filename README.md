@@ -10,8 +10,26 @@ English | [简体中文](README_CN.md)
 
 Our native Bedrock provider has been merged into Hermes Agent:
 
-- **PR:** [NousResearch/hermes-agent#10549](https://github.com/NousResearch/hermes-agent/pull/10549) (cherry-picked from [#7920](https://github.com/NousResearch/hermes-agent/pull/7920))
-- **Issue:** [NousResearch/hermes-agent#3863](https://github.com/NousResearch/hermes-agent/issues/3863) — resolved
+| PR | Status | Description |
+|----|--------|-------------|
+| [#10549](https://github.com/NousResearch/hermes-agent/pull/10549) | **Merged** | Native AWS Bedrock provider via Converse API (+3,543 lines, 18 files) |
+| [#21202](https://github.com/NousResearch/hermes-agent/pull/21202) | **Merged** | Preserve reasoningContent in normalized Bedrock responses |
+| [#7920](https://github.com/NousResearch/hermes-agent/pull/7920) | Closed (cherry-picked into #10549) | Original PR — full implementation |
+| [#11093](https://github.com/NousResearch/hermes-agent/pull/11093) | Closed (content adopted) | Docs: IAM permissions, quickstart table, config comments |
+
+**Open PRs (pending review):**
+
+| PR | Description |
+|----|-------------|
+| [#34359](https://github.com/NousResearch/hermes-agent/pull/34359) | Inherit modalities from foundation models for inference profiles |
+| [#34476](https://github.com/NousResearch/hermes-agent/pull/34476) | Support `service_tier` (flex/priority) and `performanceConfig` for cost/latency control |
+
+**Related Issues:**
+
+| Issue | Status | Description |
+|-------|--------|-------------|
+| [#3863](https://github.com/NousResearch/hermes-agent/issues/3863) | Resolved | Original feature request for native Bedrock support |
+| [#31322](https://github.com/NousResearch/hermes-agent/issues/31322) | Addressed by #34476 | Support `service_tier` for Bedrock (flex = 50% cost reduction) |
 
 This deployment now installs from the official PyPI release. No fork needed.
 
